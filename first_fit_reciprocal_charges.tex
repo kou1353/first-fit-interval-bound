@@ -1,0 +1,388 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage[margin=22mm]{geometry}
+\usepackage{mathptmx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+\definecolor{primary}{RGB}{24,62,112}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=primary,
+  citecolor=primary,
+  urlcolor=primary,
+  pdftitle={Reciprocal Neighbor Charges in First-Fit Coloring of Interval Graphs},
+  pdfauthor={kou1353}
+}
+
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+\setlength{\parindent}{0pt}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\chiFF}{\chi_{\mathrm{FF}}}
+
+\title{\textbf{Reciprocal Neighbor Charges in First-Fit Coloring of Interval Graphs}}
+\author{kou1353\\
+\small Independent Researcher \\
+\small \url{https://github.com/kou1353/first-fit-interval-bound}}
+\date{November 27, 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Let $\chiFF(G)$ denote the maximum number of colors used by the online First-Fit greedy coloring algorithm over all vertex arrival orderings of a graph $G$, and let $\omega(G)$ be its clique number. For interval graphs, the exact worst-case competitive ratio $R := \sup_{G} \chiFF(G)/\omega(G)$ has long been known to satisfy $5 \le R \le 8$, with the upper bound $8\omega(G)-3$ standing since Narayanaswamy and Subhash Babu (2008) and Brightwell, Kierstead, and Trotter.
+
+We prove that for every nonempty finite interval graph $G$,
+\[
+  \chiFF(G) \le (4 + 2\sqrt{2})\,\omega(G) + \sqrt{2} - 2 \approx 6.82843\,\omega(G) - 0.58579,
+\]
+narrowing the open gap to $5 \le R \le 4 + 2\sqrt{2}$. The proof is elementary and self-contained. Building on the ordered column method of Pemmaraju, Raman, and Varadarajan (2004) and the suffix-credit formulation of Joret and Milans (2011), we grant one unit of income to \emph{borrowed} rounds (leaving net balance unchanged). Tracking each side of a terminal column across maximal neighbor tenures ending in deletion yields a reciprocal charging inequality $ab + 2r \le 2N$ that couples real and borrowed rounds directly. At the rational parameter $a = 17/5$, this specializes to the exact integer bound $35\chiFF(G) + 20 \le 239\omega(G)$, which we formally verify end-to-end in Lean~4.15.0 with zero \texttt{sorry} and only standard axioms.
+
+\medskip
+\noindent\textbf{Keywords:} online graph coloring, First-Fit algorithm, interval graphs, competitive ratio, column construction, Lean 4 formal verification.\\
+\noindent\textbf{MSC 2020:} 05C15, 05C85, 68W27.
+\end{abstract}
+
+\section{Introduction}
+
+An \emph{interval graph} $G = (V, E)$ is the intersection graph of a finite family of intervals on the real line. Offline, every interval graph is chordal and hence perfect, so its chromatic number equals its clique number $\omega(G)$, and ordering vertices by increasing left endpoint allows greedy coloring to achieve $\omega(G)$ colors. In the \emph{online} setting, vertices arrive one by one in an adversarial order $v_1, \dots, v_n$, and an algorithm must irrevocably assign each $v_t$ a positive integer color distinct from all previously colored neighbors.
+
+Kierstead and Trotter~\cite{kt81} established that the optimal competitive ratio of any online algorithm on interval graphs is $3$, achieving at most $3\omega(G) - 2$ colors and matching this with a lower bound. Nevertheless, the simplest and most widely deployed heuristic is \emph{First-Fit} ($\mathrm{FF}$), which assigns each arriving vertex the least positive integer not already used by any of its previously seen neighbors. Let $\chiFF(G)$ denote the maximum number of colors used by First-Fit over all arrival orderings of $G$. A central problem in online combinatorics asks for the exact asymptotic performance ratio
+\[
+  R := \sup \left\{ \frac{\chiFF(G)}{\omega(G)} \;\middle|\; G \text{ is a nonempty finite interval graph} \right\}.
+\]
+
+Early progress by Woodall~\cite{woodall76} showed $\chiFF(G) = O(\omega(G)\log \omega(G))$, before Kierstead~\cite{kierstead88} proved the first linear upper bound $\chiFF(G) \le 40\omega(G)$. Kierstead and Qin~\cite{kq95} improved this to $25.72\omega(G)$, and Pemmaraju, Raman, and Varadarajan~\cite{prv04} introduced the \emph{Column Construction Method} to obtain $\chiFF(G) \le 10\omega(G)$. Refinements of the column method by Brightwell, Kierstead, and Trotter (unpublished) and independently by Narayanaswamy and Subhash Babu~\cite{nsb08} lowered the upper bound to $8\omega(G) - 3$, with an elegant all-suffix credit reformulation later given by Joret and Milans~\cite{jm11}. On the lower-bound side, Witsenhausen~\cite{witsenhausen76} and Chrobak and \'{S}lusarek~\cite{cs88} proved $R \ge 4$, \'{S}lusarek~\cite{slusarek93} achieved $R \ge 4.45$, and Kierstead, Smith, and Trotter~\cite{kst16} proved $R \ge 5$ via recursive walls and caps. Table~\ref{tab:history} summarizes this progression.
+
+\begin{table}[!htbp]
+\centering
+\caption{Historical progression of bounds on the First-Fit competitive ratio $R$ for interval graphs.}
+\label{tab:history}
+\begin{tabularx}{\linewidth}{l l X}
+\toprule
+\textbf{Reference} & \textbf{Bound on $R$} & \textbf{Key Technique} \\
+\midrule
+Woodall (1976)~\cite{woodall76} & $O(\log \omega)$ & Recursive neighborhood counting \\
+Kierstead (1988)~\cite{kierstead88} & $R \le 40$ & First linear upper bound \\
+Kierstead--Qin (1995)~\cite{kq95} & $R \le 25.72$ & Witness-set structural counting \\
+Pemmaraju--Raman--Varadarajan (2004)~\cite{prv04} & $R \le 10$ & Column Construction Method \\
+Narayanaswamy--Subhash Babu (2008)~\cite{nsb08} & $R \le 8$ ($8\omega - 3$) & Column Construction on minimal clique cover \\
+\midrule
+Witsenhausen (1976); Chrobak--\'{S}lusarek (1988)~\cite{cs88} & $R \ge 4$ & Recursive $4$-cap construction \\
+\'{S}lusarek (1993)~\cite{slusarek93} & $R \ge 4.45$ & Rational box-cap recurrence \\
+Kierstead--Smith--Trotter (2016)~\cite{kst16} & $R \ge 5$ & Multi-level quasicaps and Fibonacci barrier \\
+\midrule
+\textbf{This paper (2026)} & $\mathbf{R \le 4 + 2\sqrt{2} \approx 6.82843}$ & \textbf{Reciprocal neighbor charges + Lean~4 proof} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Main Result}
+
+Our main theorem breaks the $8\omega$ upper bound that has stood for eighteen years.
+
+\begin{theorem}[Main Theorem]\label{thm:main}
+For every nonempty finite interval graph $G$ of clique number $k = \omega(G)$, every First-Fit ordering uses a number $m$ of colors satisfying
+\begin{equation}\label{eq:main}
+  m \le (4 + 2\sqrt{2})\,k + \sqrt{2} - 2.
+\end{equation}
+In particular, $R \le 4 + 2\sqrt{2} \approx 6.828427$. Specializing to the rational parameter $a = 17/5$ yields the exact integer inequality
+\begin{equation}\label{eq:rational}
+  35m + 20 \le 239k \qquad \left(\frac{239}{35} \approx 6.828571\right).
+\end{equation}
+\end{theorem}
+
+The argument in fact proves~\eqref{eq:main} and~\eqref{eq:rational} with $k$ replaced by the maximum stabbing depth $d \le k$ over any finite set of points stabbing all intervals (such as all distinct left endpoints). In Section~\ref{sec:lean}, we document a complete, end-to-end machine-checked formalization of~\eqref{eq:rational} in Lean~4.15.0 using only the standard library (\texttt{Std}), with zero \texttt{sorry} and only Lean's standard axioms.
+
+\section{Preliminaries and Endpoint Reduction}
+
+A \emph{First-Fit coloring} of a finite interval graph $G = (V, E)$ with palette $\{1, \dots, m\}$ is a proper coloring $c : V \to \{1, \dots, m\}$ satisfying the \emph{lower-color witness property}: for every vertex $v \in V$ and every color $i \in \{1, \dots, c(v) - 1\}$, there exists a neighbor $w \in V$ of $v$ with $c(w) = i$. Conversely, presenting vertices in nondecreasing order of $c(v)$ causes First-Fit to reproduce $c$ exactly.
+
+Without loss of generality, we work with finite families of nonempty closed intervals $[l_v, r_v] \subset \mathbb{R}$ ($l_v \le r_v$). The following standard reduction ensures that mixed open, half-open, unbounded, or singleton intervals incur no loss of generality.
+
+\begin{proposition}[Closed-Interval Reduction]\label{prop:endpoints}
+Every finite family of nonempty intervals on $\mathbb{R}$ (allowing arbitrary combinations of open, closed, half-open, unbounded, and singleton intervals) admits an isomorphic intersection representation by nonempty closed integer intervals $[l_v, r_v]$ with $l_v \le r_v$.
+\end{proposition}
+
+\begin{proof}
+First truncate any unbounded endpoints beyond the minimum and maximum finite endpoints. Rank all distinct finite endpoint coordinates in increasing order as $x_1 < x_2 < \dots < x_s$. For each interval, map an open right endpoint at $x_j$ to $3j - 1$, any closed endpoint at $x_j$ to $3j$, and an open left endpoint at $x_j$ to $3j + 1$, then take all resulting intervals to be closed. For any two intervals, strictly ordered original endpoints preserve their order, while tied endpoints at $x_j$ intersect if and only if both original intervals included $x_j$ (in which case both map to $3j$). Nonempty intervals map to valid closed intervals $l_v \le r_v$. Thus the intersection graph and every First-Fit coloring are preserved verbatim.
+\end{proof}
+
+\section{Reciprocal Column Evolution and Proof of Theorem~\ref{thm:main}}
+
+Fix a nonempty finite family of closed intervals $\mathcal{I}$, a First-Fit coloring $c : \mathcal{I} \to \{1, \dots, m\}$ achieving maximum color $m \ge 1$, and a finite ordered set of points $P = \{p_1 < p_2 < \dots < p_s\} \subset \mathbb{R}$ that stabs every interval in $\mathcal{I}$ (for instance, the set of all distinct left endpoints of $\mathcal{I}$). Let
+\[
+  d := \max_{p \in P} \bigl|\{ I \in \mathcal{I} : p \in I \}\bigr| \le \omega(G)
+\]
+denote the maximum stabbing depth over $P$. We will prove Theorem~\ref{thm:main} with $d$ in place of $k$.
+
+\subsection{The Column Evolution}
+
+Fix a real parameter $a$ with $3 < a \le 4$. We refer to the elements of $P$ as \emph{columns}, ordered linearly along $\mathbb{R}$. Initially (before round $1$), all columns in $P$ are \emph{active} and have balance $0$.
+
+In round $i = 1, 2, \dots$, we determine the label of every currently active column \emph{simultaneously} from the ordered list $A_{i-1}$ of columns active at the start of round $i$, according to Table~\ref{tab:rules}. For rounds $i > m$, there are no intervals of color $i$, so every active column is \emph{Idle}.
+
+\begin{table}[!htbp]
+\centering
+\caption{Simultaneous per-round update rules for an active column $p \in A_{i-1}$ in round $i$ (with parameter $3 < a \le 4$).}
+\label{tab:rules}
+\begin{tabularx}{\linewidth}{l X l l}
+\toprule
+\textbf{Label} & \textbf{Condition (from $A_{i-1}$)} & \textbf{Income} & \textbf{Balance Update \& Survival} \\
+\midrule
+\textbf{Real} & $p \in I$ for some $I \in \mathcal{I}$ of color $i$ & $a$ & Pay $1$ (net $+a-1 > 2$), survive \\
+\textbf{Borrowed} & Not Real, and an immediate neighbor in $A_{i-1}$ is Real & $1$ & Pay $1$ (net $0$), survive \\
+\textbf{Idle} & Neither Real nor Borrowed & $0$ & If balance $> 1$: pay $1$, survive; else delete \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+For accounting on a deletion round, we also subtract the unit fee of $1$ from the deleted column's balance, yielding a \emph{formal closing balance} $\le 0$ (since deletion occurs if and only if the pre-round balance is at most $1$). Every surviving active column maintains a nonnegative balance before every round: initially $0$, increasing by $a - 1 > 2$ on a Real round, unchanged on a Borrowed round, and remaining strictly positive on a surviving Idle round.
+
+\subsection{Coverage and Survival Time}
+
+\begin{lemma}[Coverage and Extinction]\label{lem:coverage}
+After every round $i \in \{1, \dots, m\}$, the surviving set $A_i$ stabs every interval in $\mathcal{I}$ of color at least $i$. Moreover, the first round $N$ ending with $A_N = \emptyset$ is finite and satisfies
+\[
+  N \ge m + 3.
+\]
+\end{lemma}
+
+\begin{proof}
+We prove coverage by induction on $i$. Before round $1$, $A_0 = P$ stabs every interval of color $\ge 1$. For the inductive step from $i - 1$ to $i$ ($1 \le i \le m$), assume $A_{i-1}$ stabs every interval of color at least $i$. Consider any interval $I \in \mathcal{I}$ of color $c(I) \ge i$.
+\begin{itemize}
+  \item If $c(I) = i$, then any active point $p \in I \cap A_{i-1}$ is Real in round $i$ and therefore survives in $A_i$.
+  \item If $c(I) > i$, then by the First-Fit witness property, $I$ intersects some interval $J \in \mathcal{I}$ of color $i$. By the inductive hypothesis, both $I \cap A_{i-1}$ and $J \cap A_{i-1}$ are nonempty contiguous blocks in the linear order of $A_{i-1}$. If these two blocks overlap, any point in $I \cap J \cap A_{i-1}$ is Real in round $i$ and survives. Otherwise, the two blocks must be \emph{adjacent} in $A_{i-1}$: any active point $q \in A_{i-1}$ lying strictly between them would separate the intervals $I$ and $J$, contradicting $I \cap J \ne \emptyset$. Consequently, the endpoint of $I \cap A_{i-1}$ closest to $J \cap A_{i-1}$ is an immediate active neighbor of a Real column, so it is either Real or Borrowed in round $i$ and survives in $A_i$.
+\end{itemize}
+This completes the induction.
+
+In particular, some interval of color $m$ contains an active point $p \in A_{m-1}$, which is Real in round $m$. Because its pre-round balance is nonnegative, its balance after round $m$ is at least $a - 1 > 2$. In rounds $m + 1$ and $m + 2$, all columns are Idle, so $p$ survives round $m + 1$ with balance $> 1$ and survives round $m + 2$ with balance $> 0$. Hence $A_{m+2} \ne \emptyset$, which gives $N \ge m + 3$. Finally, in every round $i > m$, every surviving column's balance strictly decreases by $1$, so all columns are deleted in finitely many rounds and $N$ is finite.
+\end{proof}
+
+\subsection{Terminal-Column and Reciprocal Neighbor Accounts}
+
+Fix any column $x \in A_{N-1}$ active at the start of the extinction round $N$. Because $x$ dies in round $N$, it is Idle in round $N$ and survives rounds $1, \dots, N-1$. Let $r$ and $b$ denote the numbers of Real and Borrowed rounds of $x$, respectively (all occurring in $\{1, \dots, N-1\}$).
+
+\begin{lemma}[Terminal-Column Balance]\label{lem:own}
+The counts $r$ and $b$ satisfy
+\begin{equation}\label{eq:own}
+  N - 1 \le ar + b \qquad\text{and}\qquad r \le d.
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+At the end of its $N - 1$ surviving rounds, $x$ has earned total income $ar + b$ and paid $N - 1$ unit fees, so its balance at the start of round $N$ is $ar + b - (N - 1) \ge 0$. Furthermore, each Real round $i$ of $x$ corresponds to an interval of color $i$ containing $x$. Distinct rounds yield distinct colors and hence distinct intervals containing $x$, so $r \le d$.
+\end{proof}
+
+\begin{lemma}[Reciprocal Neighbor Charges]\label{lem:recip}
+The terminal column $x$ satisfies
+\begin{equation}\label{eq:recip}
+  ab + 2r \le 2N.
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+Track the immediate active neighbor of $x$ separately on its left side and its right side, always using the linear order of $A_{i-1}$ at the start of round $i$ for $i = 1, \dots, N$. For a fixed side, partition $\{1, \dots, N\}$ into maximal consecutive periods during which that side is occupied by the same neighbor $y$, or is vacant.
+
+Consider any maximal occupied period of length $L \ge 1$ with occupant $y$. While both $x$ and $y$ remain active, deleting other columns can never insert a column between $x$ and $y$. Moreover, in round $N$, every remaining active column is deleted. Hence this maximal period must end precisely on the round in which $y$ is deleted. Let $u \ge 0$ be the balance of $y$ at the start of the period, and let $S$ be the total income earned by $y$ over these $L$ rounds (note that $y$ is Idle and earns $0$ on its deletion round). Subtracting the unit fee on each of the $L$ rounds including the deletion round gives $y$'s formal closing balance:
+\[
+  u + S - L \le 0 \implies S \le L - u \le L.
+\]
+Crucially, this bound holds even when $y$ enters the period with positive accumulated balance $u > 0$.
+
+Now define an accounting charge on each side for each round $i \in \{1, \dots, N\}$:
+\begin{itemize}
+  \item If the side is occupied by neighbor $y$ in round $i$, assign $y$'s actual income in round $i$.
+  \item If the side is vacant in round $i$, assign $1$ if $x$ is Real in round $i$, and $0$ otherwise.
+\end{itemize}
+Over any occupied period of length $L$, the assigned charge sums to $S \le L$; over any vacant period of length $V$, the assigned charge is at most $1$ per round and thus sums to at most $V$. Summing across all periods on each side, each side's total charge is at most $N$, so the combined charge across both sides is at most $2N$.
+
+On the other hand, examine the combined charge paid by the two sides in each round $i \in \{1, \dots, N\}$:
+\begin{itemize}
+  \item Whenever $x$ is Borrowed, at least one side is occupied by a Real neighbor, which earns $a$; hence the two sides contribute at least $a$.
+  \item Whenever $x$ is Real, each occupied side has an immediate active neighbor of $x$, which must be either Real (earning $a > 1$) or Borrowed (earning $1$), while any vacant side is assigned $1$; hence the two sides together contribute at least $1 + 1 = 2$.
+\end{itemize}
+Because the Real and Borrowed rounds of $x$ are disjoint, summing these per-round lower bounds yields $ab + 2r \le 2N$.
+\end{proof}
+
+\subsection{Proof of Theorem~\ref{thm:main}}
+
+\begin{proof}[Proof of Theorem~\ref{thm:main}]
+Multiply the first inequality of~\eqref{eq:own} by $a > 0$ and eliminate $ab$ using~\eqref{eq:recip}:
+\[
+  a(N - 1) \le a^2 r + ab \le a^2 r + 2N - 2r,
+\]
+which rearranges to
+\[
+  (a - 2)N \le (a^2 - 2)r + a.
+\]
+Since $3 < a \le 4$, we have $a - 2 > 0$ and $a^2 - 2 > 0$. Substituting $N \ge m + 3$ (Lemma~\ref{lem:coverage}) and $r \le d$ (Lemma~\ref{lem:own}) yields
+\begin{equation}\label{eq:family}
+  (a - 2)m \le (a^2 - 2)d + 6 - 2a.
+\end{equation}
+Setting $t := a - 2 \in (1, 2]$, the coefficient of $d$ in~\eqref{eq:family} is
+\[
+  \frac{a^2 - 2}{a - 2} = \frac{(t + 2)^2 - 2}{t} = 4 + t + \frac{2}{t}.
+\]
+By the identity $(t + 2/t)^2 - 8 = (t - 2/t)^2$, this coefficient is uniquely minimized at $t = \sqrt{2} \in (1, 2]$, i.e., $a = 2 + \sqrt{2} \approx 3.41421$, giving coefficient $4 + 2\sqrt{2}$ and additive term
+\[
+  \frac{6 - 2(2 + \sqrt{2})}{\sqrt{2}} = \sqrt{2} - 2.
+\]
+Since $d \le k = \omega(G)$ and the bound holds for every First-Fit arrival ordering, maximizing over all orderings establishes~\eqref{eq:main}.
+
+For the rational certificate, substituting $a = 17/5 \in (3, 4]$ into~\eqref{eq:family} gives $\frac{7}{5}m \le \frac{239}{25}d - \frac{4}{5}$. Multiplying by $25$ yields $35m + 20 \le 239d \le 239k$, establishing~\eqref{eq:rational}.
+\end{proof}
+
+\section{Comparison with the Classical $8\omega$ Analysis and LP Optimality}
+
+In the classical column construction of Pemmaraju, Raman, and Varadarajan~\cite{prv04}, Narayanaswamy and Subhash Babu~\cite{nsb08}, and the all-suffix credit version of Joret and Milans~\cite{jm11}, a borrowed round receives $0$ income (surviving with balance floored at $0$), while real density is parameterized by $\epsilon = 1/a$. Up to end-round constants, the decoupled estimates read
+\[
+  b \le 2\epsilon N \qquad\text{and}\qquad r \ge \epsilon(N - b),
+\]
+giving $r/N \ge \epsilon(1 - 2\epsilon)$, whose maximum over $\epsilon$ is $1/8$ at $\epsilon = 1/4$ ($a = 4$).
+
+The losses in that decoupled accounting can be exhibited as an exact identity. At $a = 4$ with zero borrowed income, if $f$ counts the Idle (fill) rounds of a terminal column $x$ and $P$ counts the Borrowed rounds on which $x$ spends a unit of positive balance, then $x$'s closing balance after round $N - 1$ is $3r - f - P = 1$. Together with $r + b + f = N - 1$, this yields
+\[
+  8d - m = 8(d - r) + (N - m) + (N - 2b) + 2P,
+\]
+where $N - 2b$ further splits via the side real-neighbor counts $S_L, S_R$ into $(N - 4S_L)/2 + (N - 4S_R)/2 + 2(S_L + S_R - b)$. Every term on the right-hand side is nonnegative. Granting a Borrowed round $1$ unit of income avoids the $2P$ balance-floor loss and activates the symmetry of immediate neighbors, supplying the $+2r$ term in Lemma~\ref{lem:recip}.
+
+Within the resulting two-constraint homogeneous linear relaxation (normalized to $N = 1$):
+\[
+  \min r \quad\text{subject to}\quad ar + b \ge 1,\quad 2r + ab \le 2,\quad r, b \ge 0,
+\]
+setting $D := a^2 - 2$ gives the optimal primal point $(r, b) = \bigl((a - 2)/D,\; (2a - 2)/D\bigr)$ and matching dual multipliers $(a/D,\; 1/D)$, confirming that $4 + 2\sqrt{2}$ is exact for this two-constraint aggregate system.
+
+\section{Anchored-Wall Corollary and Finite-Width Refinement}
+
+Because Theorem~\ref{thm:main} holds with the stabbing depth $d$ of any chosen point cover $P$ in place of $\omega(G)$, it immediately bounds \emph{anchored walls}: let $A(s)$ be the maximum number of First-Fit colors attainable by a finite interval graph in which every interval contains an attachment point covered by at most $s$ intervals. Applying~\eqref{eq:family} directly to the attachment points gives
+\[
+  A(s) \le (4 + 2\sqrt{2})\,s + \sqrt{2} - 2 \qquad\text{and}\qquad 35A(s) + 20 \le 239s.
+\]
+
+Let $F(k)$ denote the maximum First-Fit color count over interval graphs of clique number at most $k$. Using an exhaustive sweep-line automaton (in the companion script \texttt{anchored\_walls.py}), one can certify $A(1) = 3$, $A(2) = 7$, and $A(3) = 11$, which via endpoint-cut localization $F(k) \le A(b - 1) + 1 + 2(k - b) + F(k - b)$ yields $F(5) \le 15$. Combining this finite base case with our rational bound on $A(k - 6)$ sharpens the additive constant for $k \ge 7$:
+
+\begin{corollary}[Finite-Width Additive Refinement]\label{cor:additive}
+For every integer $k \ge 7$, $F(k) \le A(k - 6) + 26$, and consequently
+\[
+  35F(k) + 544 \le 239k.
+\]
+\end{corollary}
+
+\begin{proof}
+If $F(k) \ge A(k - 6) + 1$, take the top $A(k - 6) + 1$ color classes. By definition of $A(k - 6)$, some interval $I$ in this top band is covered everywhere by at least $k - 5$ intervals from the top band, so at most $5$ lower-color intervals cross each endpoint of $I$. Deleting the at most $10$ lower color classes meeting the two endpoints of $I$ leaves all remaining lower colors represented strictly inside $I$, forming a valid First-Fit wall of clique number at most $5$ and hence height at most $F(5) \le 15$. Thus $F(k) \le A(k - 6) + 1 + 10 + 15 = A(k - 6) + 26$. Substituting $35A(k - 6) + 20 \le 239(k - 6)$ yields $35F(k) + 544 \le 239k$.
+\end{proof}
+
+\begin{remark}
+Theorem~\ref{thm:main} is completely independent of Corollary~\ref{cor:additive} and of all finite-state enumerations.
+\end{remark}
+
+\section{End-to-End Formal Verification in Lean~4}\label{sec:lean}
+
+To eliminate any possibility of subtle oversight in case analysis, endpoint ties, or epoch decomposition, the rational bound~\eqref{eq:rational} has been formalized end-to-end in Lean~4.15.0 in \texttt{ReciprocalColumns.lean} (795 lines), depending only on Lean's standard library (\texttt{Std}) with no Mathlib dependency.
+
+The formalization defines a closed interval as \texttt{Int $\times$ Int} with intersection predicate \texttt{Meets I J := I.1 $\le$ J.2 $\wedge$ J.1 $\le$ I.2}, and models a valid nonempty First-Fit coloring via the structure:
+\begin{quote}\small\ttfamily
+structure Coloring (intervals : List (Int $\times$ Int)) (color : Fin intervals.length $\to$ Nat) : Prop where\\
+\ \ nonempty : 0 < intervals.length\\
+\ \ valid    : $\forall$ v, (intervals.get v).1 $\le$ (intervals.get v).2\\
+\ \ positive : $\forall$ v, 1 $\le$ color v\\
+\ \ proper   : $\forall$ v w, v $\ne$ w $\to$ Meets (intervals.get v) (intervals.get w) $\to$ color v $\ne$ color w\\
+\ \ witness  : $\forall$ v i, 1 $\le$ i $\to$ i < color v $\to$ $\exists$ w, color w = i $\wedge$ Meets (intervals.get v) (intervals.get w)
+\end{quote}
+Scaling all balances and fees by $5$ (income $17$ on Real, $5$ on Borrowed, fee $5$ per round), the file implements the simultaneous column evolution over the sorted distinct left endpoints, formally proves Coverage (Lemma~\ref{lem:coverage}), finite extinction and $N \ge m + 3$, constructs a terminal trace certificate (including both completed neighbor-epoch decompositions), and establishes the top-level theorem:
+\begin{quote}\small\ttfamily
+theorem first\_fit\_interval\_rational\_bound\\
+\ \ (intervals : List (Int $\times$ Int)) (color : Fin intervals.length $\to$ Nat)\\
+\ \ (g : ReciprocalColumns.Coloring intervals color) :\\
+\ \ 35 * ReciprocalColumns.height color + 20 $\le$ 239 * ReciprocalColumns.depth intervals
+\end{quote}
+Compiling with warnings treated as errors yields zero \texttt{sorry}, and \texttt{\#print axioms first\_fit\_interval\_rational\_bound} confirms dependence solely on Lean's three standard axioms: \texttt{[propext, Classical.choice, Quot.sound]}.
+
+Independent Python~3 standard-library audit scripts (\texttt{audit\_column\_epochs.py}, \texttt{column\_bounds.py}, and \texttt{anchored\_walls.py}) further verify every intermediate inequality in exact \texttt{fractions.Fraction} arithmetic across $1{,}274$ abstract column histories, $80$ mixed-endpoint graphs, $220$ random interval graphs, and recursive walls up to $3{,}212$ intervals. All artifacts are publicly archived at \url{https://github.com/kou1353/first-fit-interval-bound}.
+
+\section{Open Questions}
+
+Our result reduces the open interval for the First-Fit competitive ratio on interval graphs from $[5, 8]$ to $[5, 4 + 2\sqrt{2}] \approx [5, 6.82843]$. Two natural questions remain:
+\begin{enumerate}
+  \item Can multi-hop neighbor charging, asymmetric left/right balance tracking, or a richer finite-state column automaton push the upper bound strictly below $4 + 2\sqrt{2}$ (for example, below $6$)?
+  \item Does the true competitive ratio satisfy $R = 5$, or do non-bundled (staggered) interval constructions surpass the binary $5$-cap barrier of Kierstead, Smith, and Trotter~\cite{kst16}?
+\end{enumerate}
+
+\paragraph{Acknowledgments.}
+The proof discovery, Lean~4 formalization, and verification scripts were developed in collaboration with frontier AI reasoning systems (OpenAI GPT-6 Astra / Codex and Gemini) under human problem selection, auditing, and verification.
+
+\begin{thebibliography}{9}
+
+\bibitem{cs88}
+M.~Chrobak and M.~\'{S}lusarek,
+\emph{On some packing problems related to dynamic storage allocation},
+RAIRO Inform.\ Th\'{e}or.\ Appl.\ \textbf{22} (1988), no.~4, 487--499.
+
+\bibitem{jm11}
+G.~Joret and K.~G. Milans,
+\emph{First-Fit is linear on posets excluding two long incomparable chains},
+Order \textbf{28} (2011), 455--464.
+\href{https://arxiv.org/abs/1006.5704}{arXiv:1006.5704}.
+
+\bibitem{kierstead88}
+H.~A. Kierstead,
+\emph{The linearity of first-fit coloring of interval graphs},
+SIAM J.\ Discrete Math.\ \textbf{1} (1988), no.~4, 526--530.
+
+\bibitem{kq95}
+H.~A. Kierstead and J.~Qin,
+\emph{Coloring interval graphs with First-Fit},
+Discrete Math.\ \textbf{144} (1995), no.~1--3, 47--57.
+
+\bibitem{kst16}
+H.~A. Kierstead, D.~A. Smith, and W.~T. Trotter,
+\emph{First-fit coloring on interval graphs has performance ratio at least 5},
+European J.\ Combin.\ \textbf{51} (2016), 236--254.
+\href{https://arxiv.org/abs/1506.00192}{arXiv:1506.00192}.
+
+\bibitem{kt81}
+H.~A. Kierstead and W.~T. Trotter,
+\emph{An extremal problem in recursive combinatorics},
+Congr.\ Numer.\ \textbf{33} (1981), 143--153.
+
+\bibitem{nsb08}
+N.~S. Narayanaswamy and R.~Subhash Babu,
+\emph{A note on First-Fit coloring of interval graphs},
+Order \textbf{25} (2008), no.~1, 49--53.
+\href{https://doi.org/10.1007/s11083-008-9076-6}{doi:10.1007/s11083-008-9076-6}.
+
+\bibitem{prv04}
+S.~V. Pemmaraju, R.~Raman, and K.~R. Varadarajan,
+\emph{Buffer minimization using max-coloring},
+in: Proc.\ 15th Annual ACM--SIAM Symposium on Discrete Algorithms (SODA), 2004, pp.~562--571.
+
+\bibitem{slusarek93}
+M.~\'{S}lusarek,
+\emph{A lower bound for the first-fit coloring of interval graphs},
+Zeszyty Naukowe Uniwersytetu Jagiello\'{n}skiego, Prace Informatyczne \textbf{5} (1993), 25--32.
+
+\bibitem{witsenhausen76}
+H.~S. Witsenhausen,
+\emph{On Woodall's interval problem},
+J.\ Combin.\ Theory Ser.\ A \textbf{21} (1976), 222--229.
+
+\bibitem{woodall76}
+D.~R. Woodall,
+\emph{Problem 4},
+in: Proc.\ British Combinatorial Conference 1973, London Math.\ Soc.\ Lecture Note Ser.\ \textbf{13}, Cambridge Univ.\ Press, 1974.
+
+\end{thebibliography}
+
+\end{document}
