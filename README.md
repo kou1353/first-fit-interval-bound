@@ -51,8 +51,8 @@ python3 column_bounds.py
 
 | File | Description |
 | :--- | :--- |
-| [`first_fit_column_bound.pdf`](first_fit_column_bound.pdf) | Compiled research note containing the complete 1-page proof, endpoint conventions, and comparison with the classical $8\omega$ count. |
-| [`first_fit_column_bound.tex`](first_fit_column_bound.tex) | LaTeX source of the research note. |
+| [`first_fit_reciprocal_charges.pdf`](first_fit_reciprocal_charges.pdf) | Compiled research note containing the complete 1-page proof, endpoint conventions, and comparison with the classical $8\omega$ count. |
+| [`first_fit_reciprocal_charges.tex`](first_fit_reciprocal_charges.tex) | LaTeX source of the research note. |
 | [`ReciprocalColumns.lean`](ReciprocalColumns.lean) | Complete end-to-end Lean 4 formalization (795 lines, zero `sorry`, standard axioms only). |
 | [`audit_column_epochs.py`](audit_column_epochs.py) | Independent exact-`Fraction` audit of completed neighbor epochs, 1,274 abstract histories, 80 mixed-endpoint graphs, and KST wall $T_4$. |
 | [`column_bounds.py`](column_bounds.py) | Stress tests across 220 random graphs, recursive anchored walls (up to 3,212 intervals), and 710 geometric cuts. |
@@ -64,7 +64,7 @@ python3 column_bounds.py
 
 区間グラフのオンライン彩色における First-Fit（最小の空き色を選ぶ貪欲法）の競合比について、2008年の Narayanaswamy–Subhash Babu による上界 **$8$**（$8\omega - 3$）を18年ぶりに更新し、**$4 + 2\sqrt{2} \approx 6.82843$**（厳密には $\chi_{\mathrm{FF}}(G) \le (4 + 2\sqrt{2})\omega(G) + \sqrt{2} - 2$、有理数版 $35\chi_{\mathrm{FF}}(G) + 20 \le 239\omega(G)$）を証明しました。
 
-- 証明本体は1ページ未満の初等的な議論で完結しています（[`first_fit_column_bound.pdf`](first_fit_column_bound.pdf)）。
+- 証明本体は1ページ未満の初等的な議論で完結しています（[`first_fit_reciprocal_charges.pdf`](first_fit_reciprocal_charges.pdf)）。
 - 有理数版定理 $35m + 20 \le 239d$ は [`ReciprocalColumns.lean`](ReciprocalColumns.lean) にて Lean 4.15.0 で**完全エンドツーエンド形式検証済み**です（`sorry` ゼロ、標準公理のみ）。
 
 ---
